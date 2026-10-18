@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#08090b" />
+  <title>RAG Studio | Retrieval-Augmented Generation Simulator</title>
+  <style>
+    :root {
+      --bg: #08090b;
+      --panel: #111316;
+      --panel-2: #17191d;
+      --panel-3: #1d2025;
+      --line: #292d33;
+      --line-2: #3a3f47;
+      --text: #f4f5f6;
+      --muted: #a1a6ad;
+      --muted-2: #6f7781;
+      --red: #e82127;
+      --red-2: #ff4b51;
+      --green: #b3e6ca;
+      --amber: #ffd18a;
+      --radius: 16px;
+      --font: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.55;
+      letter-spacing: .005em;
+    }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--red-2); outline-offset: 3px;
+    }
+    ::selection { background: rgba(232,33,39,.35); }
+    .topbar {
+      height: 74px; padding: 0 clamp(20px, 5vw, 76px); display: flex; align-items: center;
+      justify-content: space-between; border-bottom: 1px solid #202227; position: sticky; top: 0;
+      z-index: 10; background: rgba(8,9,11,.91); backdrop-filter: blur(18px);
+    }
+    .brand { display: flex; align-items: center; gap: 13px; letter-spacing: .16em; font-size: 11px; font-weight: 750; }
+    .brand-symbol { width: 28px; height: 28px; position: relative; display: inline-block; }
+    .brand-symbol::before { content: ""; position: absolute; left: 4px; top: 4px; width: 20px; height: 4px; background: var(--red); border-radius: 2px; }
+    .brand-symbol::after { content: ""; position: absolute; top: 8px; left: 12px; width: 4px; height: 17px; background: var(--red); border-radius: 2px; }
+    .brand-sub { color: var(--muted); font-weight: 500; }
+    .top-right { display: flex; align-items: center; gap: 15px; color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+    .local-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px rgba(179,230,202,.25); }
+    main { max-width: 1440px; margin: 0 auto; padding: 0 clamp(18px, 4.7vw, 68px) 72px; }
+    .hero { padding: clamp(40px, 7vw, 88px) 0 36px; }
+    .eyebrow { display: flex; align-items: center; gap: 10px; color: var(--muted); text-transform: uppercase; font-size: 10px; font-weight: 750; letter-spacing: .19em; }
+    .eyebrow-line { width: 25px; height: 2px; background: var(--red); }
+    h1 { font-size: clamp(42px, 7.8vw, 91px); line-height: .99; letter-spacing: -.067em; font-weight: 650; margin: 22px 0 18px; max-width: 920px; }
+    h1 span { color: var(--muted-2); }
+    .hero-copy { max-width: 690px; color: #afb3b9; font-size: clamp(15px, 1.55vw, 18px); line-height: 1.7; margin: 0; }
+    .hero-stats { display: flex; gap: clamp(24px, 5vw, 72px); margin-top: 38px; padding-top: 22px; border-top: 1px solid var(--line); max-width: 760px; }
+    .stat { min-width: 100px; }
+    .stat-value { display: block; font-size: 20px; font-weight: 600; letter-spacing: -.04em; }
+    .stat-label { display: block; color: var(--muted-2); font-size: 9px; text-transform: uppercase; letter-spacing: .15em; margin-top: 4px; }
+    .section-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; margin: 35px 0 18px; }
+    .section-kicker { color: var(--red-2); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; font-weight: 750; margin-bottom: 5px; }
+    h2 { font-size: clamp(22px, 3vw, 30px); letter-spacing: -.04em; line-height: 1.15; margin: 0; font-weight: 620; }
+    h3 { font-size: 15px; letter-spacing: -.02em; margin: 0; font-weight: 650; }
+    .section-note { color: var(--muted); font-size: 12px; max-width: 390px; text-align: right; }
+    .sim-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .9fr); gap: 18px; align-items: start; }
+    .main-column, .side-column { display: grid; gap: 18px; min-width: 0; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; min-width: 0; }
+    .panel-pad { padding: 23px; }
+    .panel-label { color: var(--muted-2); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; font-weight: 750; }
+    .query-panel { background: linear-gradient(145deg, #17191d 0%, #101114 68%); }
+    .query-panel .panel-pad { padding: 25px; }
+    .query-top { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 17px; }
+    .step-count { font-size: 10px; text-transform: uppercase; letter-spacing: .11em; color: var(--muted); }
+    .query-box { width: 100%; min-height: 99px; resize: vertical; background: #0a0b0d; border: 1px solid #343941; color: var(--text); border-radius: 10px; padding: 16px; font-size: 16px; line-height: 1.55; transition: border .18s; }
+    .query-box:focus { border-color: #777d86; outline: none; }
+    .query-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 15px; }
+    .btn { display: inline-flex; justify-content: center; align-items: center; gap: 9px; border: 1px solid transparent; border-radius: 6px; padding: 12px 18px; text-transform: uppercase; letter-spacing: .09em; font-size: 10px; font-weight: 800; transition: background .15s, border .15s, transform .15s; }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--red); color: white; }
+    .btn-primary:hover { background: #ff3037; }
+    .btn-secondary { background: transparent; border-color: #484d55; color: var(--text); }
+    .btn-secondary:hover { background: var(--panel-3); border-color: #727984; }
+    .btn-quiet { border: 0; background: transparent; color: var(--muted); padding: 8px 0; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; font-weight: 750; }
+    .btn-quiet:hover { color: white; }
+    .sample-queries { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 17px; }
+    .sample-chip { border: 1px solid #363b42; background: #14161a; color: #c3c7cc; border-radius: 4px; padding: 7px 9px; font-size: 11px; text-align: left; transition: border .15s, color .15s; }
+    .sample-chip:hover { border-color: var(--red); color: white; }
+    .pipeline-panel .panel-pad { padding: 22px 18px 20px; }
+    .pipeline-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 5px 18px; }
+    .pipeline { display: grid; grid-template-columns: repeat(8, minmax(92px, 1fr)); gap: 6px; overflow-x: auto; padding: 0 3px 9px; scrollbar-color: #454951 #111316; }
+    .stage-button { position: relative; background: transparent; border: 1px solid #2b2f35; color: var(--muted); border-radius: 8px; min-height: 101px; text-align: left; padding: 12px 10px; min-width: 0; }
+    .stage-button:not(:last-child)::after { content: ""; position: absolute; height: 1px; width: 7px; right: -7px; top: 21px; background: #444951; }
+    .stage-button:hover { border-color: #747b84; color: white; }
+    .stage-button.active { background: #241214; border-color: var(--red); color: white; }
+    .stage-button.done { border-color: #4e7563; }
+    .stage-number { display: block; font-size: 9px; letter-spacing: .1em; color: #777e87; margin-bottom: 12px; }
+    .stage-button.active .stage-number { color: var(--red-2); }
+    .stage-button.done .stage-number { color: var(--green); }
+    .stage-name { display: block; font-size: 11px; font-weight: 750; line-height: 1.3; }
+    .stage-mini { display: block; font-size: 9px; line-height: 1.35; color: #7f858e; margin-top: 7px; }
+    .stage-detail { border-top: 1px solid var(--line); padding: 21px 7px 2px; margin-top: 8px; }
+    .stage-detail-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
+    .stage-title-wrap { display: flex; align-items: flex-start; gap: 13px; }
+    .stage-big-num { display: flex; align-items: center; justify-content: center; width: 35px; height: 35px; background: #25282d; color: var(--red-2); border-radius: 8px; font-size: 12px; font-weight: 800; flex-shrink: 0; }
+    .stage-subtitle { color: var(--muted); font-size: 12px; margin-top: 6px; max-width: 550px; }
+    .stage-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 19px; }
+    .stage-content { margin-top: 18px; }
+    .explain-box { padding: 13px 15px; border-left: 2px solid var(--red); background: #191b20; color: #c8cbd0; font-size: 12px; border-radius: 0 7px 7px 0; }
+    .explain-box strong { color: white; }
+    .token-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+    .token { border: 1px solid #353a42; background: #1a1c20; color: #d2d5d9; border-radius: 4px; padding: 5px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+    .mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; margin-top: 14px; }
+    .mini-item { background: #191b20; border: 1px solid #2c3037; border-radius: 8px; padding: 12px; min-width: 0; }
+    .mini-item strong { display: block; font-size: 11px; margin-bottom: 5px; }
+    .mini-item p { color: var(--muted); margin: 0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+    .vector-list { display: grid; gap: 8px; margin-top: 14px; }
+    .vector-row { display: grid; grid-template-columns: 100px minmax(50px,1fr) 32px; align-items: center; gap: 12px; font-size: 10px; }
+    .vector-label { color: #adb2ba; }
+    .vector-track { height: 7px; background: #2b2f36; border-radius: 10px; overflow: hidden; }
+    .vector-fill { display: block; height: 100%; background: var(--red); border-radius: inherit; transition: width .3s ease; }
+    .vector-value { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted-2); }
+    .result-list { display: grid; gap: 9px; margin-top: 12px; }
+    .result-card { padding: 13px; background: #191b20; border: 1px solid #30343a; border-radius: 8px; }
+    .result-meta { display: flex; justify-content: space-between; align-items: center; gap: 9px; margin-bottom: 7px; }
+    .source-tag { font-size: 9px; color: #f0b3b5; text-transform: uppercase; letter-spacing: .1em; font-weight: 800; }
+    .score-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--green); }
+    .result-card p { margin: 0; color: #bfc3c9; font-size: 11px; line-height: 1.55; }
+    .answer-panel { background: linear-gradient(158deg, #191b1f 0%, #111316 66%); }
+    .answer-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 18px; }
+    .answer-indicator { display: inline-flex; align-items: center; gap: 7px; color: #b7ddc8; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+    .answer-indicator::before { content: ""; height: 6px; width: 6px; background: var(--green); border-radius: 50%; }
+    .answer-indicator.pending { color: var(--muted); }
+    .answer-indicator.pending::before { background: #6e747e; }
+    .answer-copy { color: #e8e9eb; font-size: 14px; line-height: 1.8; margin: 0; overflow-wrap: anywhere; }
+    .answer-copy .cite { color: white; background: #3c171a; border: 1px solid #633033; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; white-space: nowrap; }
+    .answer-copy .cite:hover { background: var(--red); border-color: var(--red); }
+    .answer-foot { border-top: 1px solid var(--line); margin-top: 19px; padding-top: 13px; color: var(--muted-2); font-size: 10px; display: flex; justify-content: space-between; gap: 10px; }
+    .empty-answer { text-align: left; padding: 21px 0 11px; }
+    .empty-icon { width: 43px; height: 43px; display: flex; justify-content: center; align-items: center; border: 1px solid #353941; border-radius: 50%; color: var(--red-2); font-size: 18px; margin-bottom: 15px; }
+    .empty-answer strong { display: block; font-size: 13px; margin-bottom: 7px; }
+    .empty-answer p { color: var(--muted); font-size: 12px; margin: 0; max-width: 300px; }
+    .context-panel .panel-pad { padding-bottom: 20px; }
+    .context-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .tiny-count { background: #26292f; color: #b9bec5; border-radius: 4px; padding: 4px 7px; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .context-empty { color: var(--muted-2); font-size: 11px; padding: 9px 0 0; }
+    .context-chunk { padding: 12px 0; border-top: 1px solid #2a2e34; }
+    .context-chunk:first-child { border-top: 0; padding-top: 2px; }
+    .context-chunk-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .context-chunk-title { color: #e5e6e8; font-size: 11px; font-weight: 700; }
+    .context-chunk-id { color: var(--muted-2); font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .context-chunk p { color: #aeb3ba; font-size: 11px; margin: 0; line-height: 1.6; }
+    .context-note { padding: 10px; background: #1b1d22; border-radius: 6px; color: var(--muted); font-size: 10px; margin-top: 8px; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #2b2e34; }
+    .settings-row label { font-size: 11px; color: #b4b9c0; }
+    .settings-row input[type="range"] { width: 100px; accent-color: var(--red); }
+    .slider-side { display: flex; align-items: center; gap: 9px; color: var(--text); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .library { margin-top: 55px; }
+    .library-intro { display: flex; justify-content: space-between; gap: 30px; align-items: flex-end; margin-bottom: 20px; }
+    .library-intro p { color: var(--muted); max-width: 460px; font-size: 12px; line-height: 1.7; margin: 0; }
+    .source-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .source-card { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 17px; min-width: 0; scroll-margin-top: 100px; transition: border .2s, box-shadow .2s; }
+    .source-card.highlight { border-color: var(--red); box-shadow: 0 0 0 1px rgba(232,33,39,.15); }
+    .source-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .source-number { color: var(--red-2); font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .source-card h3 { margin-top: 5px; font-size: 13px; }
+    .source-card p { color: #9da3ab; font-size: 11px; line-height: 1.65; margin: 0; }
+    .source-card-actions { display: flex; gap: 12px; margin-top: 13px; }
+    .source-card-actions button { border: 0; padding: 0; background: transparent; color: #8d949d; text-transform: uppercase; letter-spacing: .09em; font-size: 9px; font-weight: 800; }
+    .source-card-actions button:hover { color: white; }
+    .editor { margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--line); }
+    .editor label { display: block; color: var(--muted); font-size: 10px; margin: 9px 0 5px; }
+    .editor input, .editor textarea { width: 100%; background: #090a0c; border: 1px solid #3a3f47; color: white; padding: 9px; border-radius: 5px; font-size: 11px; }
+    .editor textarea { resize: vertical; min-height: 105px; line-height: 1.5; }
+    .editor-actions { display: flex; gap: 12px; margin-top: 10px; }
+    .add-doc-panel { display: none; background: var(--panel-2); border: 1px dashed #484d56; border-radius: 11px; padding: 18px; margin-bottom: 15px; }
+    .add-doc-panel.open { display: block; }
+    .add-doc-grid { display: grid; grid-template-columns: .7fr 1.3fr; gap: 13px; }
+    .add-doc-panel label { color: var(--muted); display: block; font-size: 10px; margin-bottom: 6px; }
+    .add-doc-panel input, .add-doc-panel textarea { width: 100%; background: #090a0c; border: 1px solid #3a3f47; color: white; border-radius: 5px; padding: 10px; font-size: 12px; }
+    .add-doc-panel textarea { min-height: 80px; resize: vertical; }
+    .add-doc-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; }
+    .muted-small { font-size: 10px; color: var(--muted-2); }
+    .concept-note { margin-top: 18px; display: flex; align-items: flex-start; gap: 13px; border: 1px solid #342f30; border-radius: 9px; padding: 15px; background: #151214; }
+    .concept-note .note-icon { color: var(--red-2); font-size: 18px; line-height: 1.2; }
+    .concept-note p { color: #b6b7bb; font-size: 11px; margin: 0; line-height: 1.7; }
+    .concept-note strong { color: white; }
+    .footer { display: flex; justify-content: space-between; gap: 18px; padding-top: 24px; border-top: 1px solid var(--line); margin-top: 58px; color: #707782; font-size: 10px; letter-spacing: .04em; }
+    .toast { position: fixed; bottom: 23px; left: 50%; transform: translate(-50%, 18px); background: #f5f5f5; color: #101114; border-radius: 6px; padding: 10px 16px; box-shadow: 0 10px 35px rgba(0,0,0,.3); font-size: 12px; z-index: 100; opacity: 0; pointer-events: none; transition: .2s; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    @media (max-width: 1050px) {
+      .sim-layout { grid-template-columns: 1fr; }
+      .side-column { grid-template-columns: repeat(2, minmax(0,1fr)); align-items: start; }
+      .answer-panel { grid-row: span 2; }
+      .pipeline { grid-template-columns: repeat(8, 112px); }
+      .source-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (max-width: 640px) {
+      .topbar { height: 62px; padding: 0 17px; }
+      .top-right { font-size: 9px; gap: 8px; }
+      .brand { font-size: 10px; gap: 8px; }
+      main { padding-left: 15px; padding-right: 15px; }
+      .hero { padding-top: 46px; }
+      .hero-stats { gap: 19px; }
+      .stat-value { font-size: 17px; }
+      .stat-label { font-size: 8px; letter-spacing: .08em; }
+      .section-head, .library-intro { align-items: flex-start; flex-direction: column; }
+      .section-note { text-align: left; }
+      .panel-pad, .query-panel .panel-pad { padding: 17px; }
+      .pipeline-panel .panel-pad { padding: 16px 10px; }
+      .pipeline-head { margin-left: 6px; }
+      .side-column { grid-template-columns: 1fr; }
+      .answer-panel { grid-row: auto; }
+      .source-grid { grid-template-columns: 1fr; }
+      .mini-grid { grid-template-columns: 1fr; }
+      .add-doc-grid { grid-template-columns: 1fr; }
+      .query-actions { align-items: stretch; }
+      .query-actions .btn { flex: 1; }
+      .footer { flex-direction: column; }
+      .stage-detail-top { flex-direction: column; }
+      .stage-actions { justify-content: stretch; }
+      .stage-actions .btn { flex: 1; }
+      .vector-row { grid-template-columns: 83px minmax(50px,1fr) 30px; gap: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" aria-label="RAG Studio">
+      <span class="brand-symbol" aria-hidden="true"></span>
+      <span>RAG <span class="brand-sub">/ STUDIO</span></span>
+    </div>
+    <div class="top-right"><span class="local-dot" aria-hidden="true"></span><span>Local demo</span><span aria-hidden="true">·</span><span>01 / Learn by running</span></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow"><span class="eyebrow-line"></span> Retrieval-augmented generation</div>
+      <h1>Inside the answer<span>.</span></h1>
+      <p class="hero-copy">Watch a question move through a RAG system. Follow how source documents become chunks, how relevant context is retrieved, and how an answer is tied back to evidence.</p>
+      <div class="hero-stats" aria-label="What this simulator demonstrates">
+        <div class="stat"><span class="stat-value">08</span><span class="stat-label">Pipeline stages</span></div>
+        <div class="stat"><span class="stat-value" id="statDocs">06</span><span class="stat-label">Knowledge sources</span></div>
+        <div class="stat"><span class="stat-value" id="statChunks">—</span><span class="stat-label">Indexed chunks</span></div>
+      </div>
+    </section>
+
+    <div class="section-head">
+      <div><div class="section-kicker">Simulation environment</div><h2>Run a question through RAG.</h2></div>
+      <div class="section-note">Try a sample question, or write your own. Then run the whole pipeline or advance one stage at a time.</div>
+    </div>
+
+    <section class="sim-layout" aria-label="RAG simulator">
+      <div class="main-column">
+        <section class="panel query-panel">
+          <div class="panel-pad">
+            <div class="query-top"><span class="panel-label">01 / User query</span><span class="step-count" id="runStatus">Ready when you are</span></div>
+            <label for="queryInput" class="sr-only">Ask a question about the knowledge base</label>
+            <textarea id="queryInput" class="query-box" placeholder="Ask something about the knowledge base…">How long is the battery covered by the warranty?</textarea>
+            <div class="query-actions">
+              <button class="btn btn-primary" id="runAllBtn" type="button">Run full pipeline <span aria-hidden="true">↗</span></button>
+              <button class="btn btn-secondary" id="startStepBtn" type="button">Start guided run</button>
+              <button class="btn-quiet" id="resetBtn" type="button">Reset</button>
+            </div>
+            <div class="sample-queries" aria-label="Example questions">
+              <button class="sample-chip" type="button" data-query="How long is the battery covered by the warranty?">Battery warranty</button>
+              <button class="sample-chip" type="button" data-query="How much does public charging cost?">Charging costs</button>
+              <button class="sample-chip" type="button" data-query="How do I cancel my subscription and get a refund?">Cancel a subscription</button>
+              <button class="sample-chip" type="button" data-query="How long does home charging take?">Home charging time</button>
+              <button class="sample-chip" type="button" data-query="Who is the company CEO?">Ask outside the sources</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel pipeline-panel">
+          <div class="panel-pad">
+            <div class="pipeline-head"><div><div class="panel-label">The workflow</div><h3 style="margin-top:5px">From raw text to grounded response</h3></div><div class="step-count" id="progressText">0 / 8 stages</div></div>
+            <div class="pipeline" id="pipeline" aria-label="Pipeline stages">
+              <button class="stage-button" data-stage="0" type="button"><span class="stage-number">01</span><span class="stage-name">Query</span><span class="stage-mini">User intent</span></button>
+              <button class="stage-button" data-stage="1" type="button"><span class="stage-number">02</span><span class="stage-name">Ingest</span><span class="stage-mini">Load sources</span></button>
+              <button class="stage-button" data-stage="2" type="button"><span class="stage-number">03</span><span class="stage-name">Chunk</span><span class="stage-mini">Split text</span></button>
+              <button class="stage-button" data-stage="3" type="button"><span class="stage-number">04</span><span class="stage-name">Embed + index</span><span class="stage-mini">Prepare vectors</span></button>
+              <button class="stage-button" data-stage="4" type="button"><span class="stage-number">05</span><span class="stage-name">Embed query</span><span class="stage-mini">Vectorize ask</span></button>
+              <button class="stage-button" data-stage="5" type="button"><span class="stage-number">06</span><span class="stage-name">Retrieve</span><span class="stage-mini">Rank matches</span></button>
+              <button class="stage-button" data-stage="6" type="button"><span class="stage-number">07</span><span class="stage-name">Augment</span><span class="stage-mini">Build context</span></button>
+              <button class="stage-button" data-stage="7" type="button"><span class="stage-number">08</span><span class="stage-name">Generate</span><span class="stage-mini">Answer + cite</span></button>
+            </div>
+            <div class="stage-detail" id="stageDetail" aria-live="polite">
+              <div class="stage-detail-top"><div class="stage-title-wrap"><div class="stage-big-num">00</div><div><h3>Ready to explore</h3><div class="stage-subtitle">Run the pipeline to see each transformation, or begin a guided run to inspect the stages in order.</div></div></div></div>
+              <div class="stage-content"><div class="explain-box"><strong>RAG in one sentence:</strong> retrieve relevant information from your own sources, then use that information as context for producing an answer.</div></div>
+            </div>
+            <div class="stage-actions">
+              <button class="btn btn-secondary" id="prevBtn" type="button" disabled>← Previous</button>
+              <button class="btn btn-primary" id="nextBtn" type="button">Begin with query →</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="side-column">
+        <section class="panel answer-panel">
+          <div class="panel-pad">
+            <div class="answer-header"><span class="panel-label">Output / Grounded answer</span><span class="answer-indicator pending" id="answerStatus">Waiting</span></div>
+            <div id="answerBody" class="empty-answer"><div class="empty-icon" aria-hidden="true">✳</div><strong>Your answer will appear here.</strong><p>Run the pipeline to see what the simulator can answer from the indexed sources, including source citations.</p></div>
+            <div class="answer-foot"><span id="answerSourceCount">No citations yet</span><span id="answerConfidence">Confidence: —</span></div>
+          </div>
+        </section>
+
+        <section class="panel context-panel">
+          <div class="panel-pad">
+            <div class="context-top"><div><div class="panel-label">Retrieved context</div><h3 style="margin-top:5px">What the model can see</h3></div><span class="tiny-count" id="contextCount">0 chunks</span></div>
+            <div id="contextBody" class="context-empty">Relevant text will appear here after retrieval and context assembly.</div>
+            <div class="context-note">In a production system, this context is inserted into a prompt alongside instructions and the user's question.</div>
+            <div class="settings-row"><label for="topK">Maximum chunks to retrieve</label><div class="slider-side"><input id="topK" type="range" min="1" max="5" value="3" /><span id="topKValue">3</span></div></div>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-pad">
+            <div class="context-top"><div><div class="panel-label">Search diagnostics</div><h3 style="margin-top:5px">Top matches</h3></div><span class="tiny-count" id="matchCount">0 results</span></div>
+            <div id="resultsBody" class="context-empty">Run retrieval to compare candidate chunks and their relevance scores.</div>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="library" id="knowledgeLibrary">
+      <div class="library-intro">
+        <div><div class="section-kicker">Knowledge base</div><h2>Give the system something to know.</h2></div>
+        <p>These sample support documents are the source of truth for this demo. Edit them or add your own. A new run re-indexes the current library.</p>
+      </div>
+      <div class="add-doc-panel" id="addDocPanel">
+        <div class="add-doc-grid">
+          <div><label for="newDocTitle">Document title</label><input id="newDocTitle" type="text" maxlength="90" placeholder="e.g. Return policy" /></div>
+          <div><label for="newDocText">Document text</label><textarea id="newDocText" maxlength="5000" placeholder="Paste a few sentences that should help answer a question…"></textarea></div>
+        </div>
+        <div class="add-doc-footer"><span class="muted-small">Keep documents factual. The simulator can only ground answers in text it retrieves.</span><div style="display:flex;gap:9px"><button class="btn btn-secondary" type="button" id="cancelAddBtn">Cancel</button><button class="btn btn-primary" type="button" id="saveAddBtn">Add source</button></div></div>
+      </div>
+      <div class="source-grid" id="sourceGrid"></div>
+      <div class="library-intro" style="margin-top:18px;margin-bottom:0;align-items:center">
+        <span class="muted-small" id="librarySummary">6 documents · Changes apply on the next run</span>
+        <button class="btn btn-secondary" id="addDocBtn" type="button">＋ Add a document</button>
+      </div>
+      <div class="concept-note"><span class="note-icon" aria-hidden="true">ⓘ</span><p><strong>Important simulation note.</strong> This is a teaching model, not a live AI service. It uses transparent, hand-built concept features and keyword overlap instead of a trained embedding model, and it assembles an extractive answer instead of calling an LLM. Real RAG systems typically use learned embeddings, a vector database or search index, and an actual language model. This demo runs locally in your browser and sends no data to a server.</p></div>
+    </section>
+
+    <footer class="footer"><span>RAG STUDIO · LEARN THE MECHANICS</span><span>Single-file HTML · CSS · JavaScript · No external libraries</span></footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const defaultDocs = [
+        { id: 1, title: "Home charging basics", text: "Install a compatible Level 2 wall charger through a qualified electrician. A full charge typically takes 6 to 10 hours, depending on the vehicle model and electrical supply. Standard household outlets are slower." },
+        { id: 2, title: "Battery warranty", text: "The high-voltage battery is covered for 8 years or 100,000 miles, whichever comes first. Warranty coverage protects against battery defects and excessive capacity loss, subject to regional terms. Normal degradation is expected and is not automatically treated as a defect." },
+        { id: 3, title: "Public charging costs", text: "Public charging prices vary by station operator, location, and time of day. The app shows an estimated price before a session begins. Idle fees may apply when a vehicle remains connected after charging is complete at a busy station." },
+        { id: 4, title: "Account and subscriptions", text: "Drivers can manage their profile, payment method, and notifications in Account Settings. A charging subscription can be canceled at any time in the app. Cancellation stops renewal at the end of the current billing period; previously paid charges are not automatically refunded." },
+        { id: 5, title: "Software updates", text: "Software updates are delivered over the air when the vehicle is connected to Wi-Fi and has sufficient battery charge. Release notes describe the included changes. Some updates require the vehicle to be parked and may take several minutes." },
+        { id: 6, title: "Roadside support", text: "If a vehicle cannot be driven safely, stop in a safe location and contact roadside support through the app. Share your location and a description of the issue. Do not attempt repairs on high-voltage electrical systems." }
+      ];
+      let docs = defaultDocs.map(d => ({...d}));
+      let nextDocId = 7;
+      let indexedDocs = [];
+      let chunks = [];
+      let retrieved = [];
+      let assembled = [];
+      let queryVector = null;
+      let currentQuery = "";
+      let currentStage = -1;
+      let completed = new Set();
+      let answer = null;
+      let toastTimer = null;
+
+      const stages = [
+        { title: "Receive the user query", mini: "Capture intent", subtitle: "The system starts with the exact question the user wants answered.", what: "A RAG request begins with a question. The query is the signal used to search the knowledge base, so clarity affects what the retriever finds.", why: "A language model's built-in knowledge is not the only source. RAG uses the question to look up external or private source material first." },
+        { title: "Ingest source documents", mini: "Load knowledge", subtitle: "Documents are collected and prepared before search can happen.", what: "The system reads the current source library and assigns source IDs. In a real pipeline, ingestion may include parsing PDFs, web pages, tables, access controls, and metadata.", why: "The answer can only be as grounded as the source material that was successfully ingested." },
+        { title: "Split documents into chunks", mini: "Create passages", subtitle: "Long documents are broken into smaller pieces that can be retrieved individually.", what: "This demo groups sentences into short chunks. Chunking helps the retriever return the part of a document most relevant to the question instead of passing an entire long file.", why: "Chunks that are too large can add noise. Chunks that are too small can lose context. Overlap is often added in production systems." },
+        { title: "Embed and index the chunks", mini: "Prepare search", subtitle: "Each chunk gets a representation that can be compared during search.", what: "The simulator creates a small, transparent concept vector for every chunk and keeps it in an in-memory index. It is a stand-in for learned embedding vectors and a vector database.", why: "A retrieval system needs a searchable representation of each passage. Real embedding models map text into high-dimensional vectors that can capture semantic relationships." },
+        { title: "Embed the question", mini: "Represent intent", subtitle: "The user's question is transformed into the same kind of representation as the chunks.", what: "The question is mapped onto the same seven concept dimensions as the indexed chunks. Using the same representation lets us compare the query with each passage.", why: "In a production RAG pipeline, the query and source chunks generally need compatible embeddings so similarity search can rank useful evidence." },
+        { title: "Retrieve relevant chunks", mini: "Rank evidence", subtitle: "Candidate passages are scored and the strongest matches are selected.", what: "Each chunk receives a demo relevance score using cosine similarity between concept vectors plus keyword overlap. The top-K control determines how many candidates can be returned.", why: "Retrieval quality matters: irrelevant chunks can distract generation, while missing a key passage can lead to an incomplete or unsupported answer." },
+        { title: "Augment the prompt with context", mini: "Ground the model", subtitle: "Retrieved passages are assembled into the context given to the answer generator.", what: "The selected chunks are collected with source labels. A real system would combine them with a system instruction and the original question in a prompt sent to an LLM.", why: "This is the 'augmented' part of RAG. The model is instructed to answer from retrieved evidence rather than guessing when evidence is missing." },
+        { title: "Generate a grounded answer", mini: "Answer + citations", subtitle: "The response is produced using the retrieved passages, with evidence linked back to sources.", what: "For safety and transparency, this demo extracts relevant sentences from the retrieved chunks and attaches source citations. It does not call an LLM or invent new facts.", why: "Citations help a reader inspect the supporting source. In real systems, citations still need validation because a citation can exist without fully supporting a claim." }
+      ];
+
+      const concepts = [
+        { label: "Charging", terms: ["charging", "charger", "charge", "level 2", "wall charger", "outlet", "station", "hours", "session", "plug", "electrician", "home charging", "idle fees"] },
+        { label: "Battery", terms: ["battery", "capacity", "degradation", "high-voltage", "high voltage", "pack", "miles", "mile", "years", "range"] },
+        { label: "Warranty", terms: ["warranty", "covered", "coverage", "cover", "defect", "guarantee", "protect", "protection", "eligible"] },
+        { label: "Pricing", terms: ["cost", "costs", "price", "prices", "fee", "fees", "paid", "payment", "refund", "refunded", "money", "billing", "renewal", "subscription", "charge", "charges", "expensive", "free", "rate"] },
+        { label: "Account", terms: ["account", "profile", "settings", "driver", "app", "manage", "notifications", "cancel", "canceled", "cancelled", "cancellation", "subscription", "membership", "terminate"] },
+        { label: "Software", terms: ["software", "update", "updates", "release", "wi-fi", "wifi", "version", "install", "over the air", "release notes"] },
+        { label: "Safety & support", terms: ["safe", "safely", "roadside", "support", "repair", "issue", "location", "electrical systems", "vehicle", "parked", "emergency", "help"] }
+      ];
+      const stopWords = new Set("a an the is are was were be been being to of for and or in on at by with from how what when where why who do does did can could would should i me my we our you your it this that these those about long much many get give tell explain find please is it".split(" "));
+
+      const $ = (id) => document.getElementById(id);
+      const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+      const normalize = (s) => String(s || "").toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9\s-]/g, " ").replace(/\s+/g, " ").trim();
+      const wordSet = (s) => new Set(normalize(s).split(" ").filter(Boolean));
+      const hasTerm = (text, term) => {
+        const n = normalize(text);
+        const t = normalize(term);
+        if (!t) return false;
+        if (t.includes(" ")) return (` ${n} `).includes(` ${t} `);
+        return wordSet(n).has(t);
+      };
+      function vectorize(text) {
+        return concepts.map(c => c.terms.some(term => hasTerm(text, term)) ? 1 : 0);
+      }
+      function cosine(a, b) {
+        if (!a || !b) return 0;
+        let dot = 0, aa = 0, bb = 0;
+        for (let i = 0; i < Math.min(a.length, b.length); i++) { dot += a[i] * b[i]; aa += a[i] * a[i]; bb += b[i] * b[i]; }
+        return aa && bb ? dot / (Math.sqrt(aa) * Math.sqrt(bb)) : 0;
+      }
+      function lexicalScore(query, text) {
+        const q = [...wordSet(query)].filter(w => !stopWords.has(w) && w.length > 2);
+        const t = wordSet(text);
+        if (!q.length) return 0;
+        const matched = q.filter(w => t.has(w)).length;
+        return matched / Math.sqrt(q.length * Math.max(1, t.size));
+      }
+      function relevance(query, text) {
+        const qv = vectorize(query), tv = vectorize(text);
+        const sem = cosine(qv, tv);
+        const lex = lexicalScore(query, text);
+        // Weighted blend is intentionally simple and inspectable, not a production retriever.
+        return Math.min(1, 0.78 * sem + 0.22 * lex);
+      }
+      function splitSentences(text) {
+        return String(text || "").replace(/\s+/g, " ").match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(s => s.trim()).filter(Boolean) || [];
+      }
+      function makeChunks(sourceDocs) {
+        const made = [];
+        sourceDocs.forEach((doc, docIndex) => {
+          const sents = splitSentences(doc.text);
+          // Group up to two sentences per chunk, like a simple chunking policy.
+          for (let i = 0; i < sents.length; i += 2) {
+            const text = sents.slice(i, i + 2).join(" ");
+            made.push({ id: `C${String(made.length + 1).padStart(2, "0")}`, docId: doc.id, sourceNo: docIndex + 1, source: `S${docIndex + 1}`, title: doc.title, text, sentences: splitSentences(text), vector: null, score: 0 });
+          }
+        });
+        return made;
+      }
+      function queryTokens(q) {
+        return normalize(q).split(" ").filter(w => w && !stopWords.has(w) && w.length > 1).slice(0, 18);
+      }
+      function featureNamesFor(vector) { return concepts.filter((c, i) => vector && vector[i]).map(c => c.label); }
+      function sentenceWordCount(s) { return normalize(s).split(" ").filter(Boolean).length; }
+      function showToast(message) {
+        const t = $("toast"); t.textContent = message; t.classList.add("show");
+        clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2400);
+      }
+      function setStatus(text) { $("runStatus").textContent = text; }
+
+      function renderSources() {
+        $("sourceGrid").innerHTML = docs.map((doc, index) => `
+          <article class="source-card" id="source-${doc.id}" data-doc-id="${doc.id}">
+            <div class="source-card-head"><div><span class="source-number">SOURCE ${(index + 1).toString().padStart(2,"0")}</span><h3>${escapeHtml(doc.title)}</h3></div><span class="tiny-count">${splitSentences(doc.text).length} sentences</span></div>
+            <p>${escapeHtml(doc.text)}</p>
+            <div class="source-card-actions"><button type="button" data-edit-doc="${doc.id}">Edit source</button><button type="button" data-remove-doc="${doc.id}">Remove</button></div>
+            ${doc.editing ? `<div class="editor"><label for="edit-title-${doc.id}">Title</label><input id="edit-title-${doc.id}" value="${escapeHtml(doc.title)}" maxlength="90" /><label for="edit-text-${doc.id}">Document text</label><textarea id="edit-text-${doc.id}" maxlength="5000">${escapeHtml(doc.text)}</textarea><div class="editor-actions"><button class="btn btn-primary" type="button" data-save-doc="${doc.id}">Save changes</button><button class="btn-quiet" type="button" data-cancel-edit="${doc.id}">Cancel</button></div></div>` : ""}
+          </article>`).join("");
+        $("statDocs").textContent = String(docs.length).padStart(2, "0");
+        $("librarySummary").textContent = `${docs.length} document${docs.length === 1 ? "" : "s"} · Changes apply on the next run`;
+      }
+      function resetRunState() {
+        indexedDocs = []; chunks = []; retrieved = []; assembled = []; queryVector = null; answer = null; completed = new Set(); currentStage = -1; currentQuery = "";
+        $("statChunks").textContent = "—";
+        $("answerStatus").textContent = "Waiting"; $("answerStatus").classList.add("pending");
+        $("answerBody").className = "empty-answer";
+        $("answerBody").innerHTML = `<div class="empty-icon" aria-hidden="true">✳</div><strong>Your answer will appear here.</strong><p>Run the pipeline to see what the simulator can answer from the indexed sources, including source citations.</p>`;
+        $("answerSourceCount").textContent = "No citations yet"; $("answerConfidence").textContent = "Confidence: —";
+        $("contextCount").textContent = "0 chunks"; $("contextBody").className = "context-empty"; $("contextBody").textContent = "Relevant text will appear here after retrieval and context assembly.";
+        $("matchCount").textContent = "0 results"; $("resultsBody").className = "context-empty"; $("resultsBody").textContent = "Run retrieval to compare candidate chunks and their relevance scores.";
+        $("progressText").textContent = "0 / 8 stages"; setStatus("Ready when you are");
+        $("prevBtn").disabled = true; $("nextBtn").textContent = "Begin with query →"; $("startStepBtn").textContent = "Start guided run";
+        renderPipeline(); renderStageDetail();
+      }
+      function renderPipeline() {
+        document.querySelectorAll(".stage-button").forEach(btn => {
+          const n = Number(btn.dataset.stage);
+          btn.classList.toggle("active", n === currentStage);
+          btn.classList.toggle("done", completed.has(n));
+          btn.setAttribute("aria-current", n === currentStage ? "step" : "false");
+        });
+        $("progressText").textContent = `${completed.size} / ${stages.length} stages`;
+        $("prevBtn").disabled = currentStage <= 0;
+        $("nextBtn").textContent = currentStage < 0 ? "Begin with query →" : currentStage >= stages.length - 1 ? "Run again ↻" : `Next: ${stages[currentStage + 1].mini.toLowerCase()} →`;
+        $("startStepBtn").textContent = currentStage < 0 ? "Start guided run" : currentStage >= stages.length - 1 ? "Restart guided run" : "Continue guided run";
+      }
+      function featureBars(vector, title = "Concept dimensions") {
+        if (!vector) return `<div class="context-empty">Vector not created yet.</div>`;
+        const max = Math.max(1, ...vector);
+        return `<div class="panel-label" style="margin-top:14px">${escapeHtml(title)}</div><div class="vector-list">${concepts.map((c, i) => `<div class="vector-row"><span class="vector-label">${escapeHtml(c.label)}</span><span class="vector-track"><span class="vector-fill" style="width:${vector[i] ? (vector[i] / max * 100) : 0}%"></span></span><span class="vector-value">${vector[i] ? vector[i].toFixed(1) : "0.0"}</span></div>`).join("")}</div>`;
+      }
+      function renderStageDetail() {
+        const root = $("stageDetail");
+        if (currentStage < 0) {
+          root.innerHTML = `<div class="stage-detail-top"><div class="stage-title-wrap"><div class="stage-big-num">00</div><div><h3>Ready to explore</h3><div class="stage-subtitle">Run the pipeline to see each transformation, or begin a guided run to inspect the stages in order.</div></div></div></div><div class="stage-content"><div class="explain-box"><strong>RAG in one sentence:</strong> retrieve relevant information from your own sources, then use that information as context for producing an answer.</div></div>`;
+          renderPipeline(); return;
+        }
+        const s = stages[currentStage];
+        let content = "";
+        if (currentStage === 0) {
+          const tokens = queryTokens(currentQuery);
+          content = `<div class="explain-box">${escapeHtml(s.what)}<br><br><strong>Why it matters:</strong> ${escapeHtml(s.why)}</div><div class="panel-label" style="margin-top:16px">Query after simple normalization</div><div class="token-list">${tokens.length ? tokens.map(t => `<span class="token">${escapeHtml(t)}</span>`).join("") : `<span class="token">No searchable terms detected</span>`}</div>`;
+        } else if (currentStage === 1) {
+          content = `<div class="explain-box">${escapeHtml(s.what)}<br><br><strong>Why it matters:</strong> ${escapeHtml(s.why)}</div><div class="mini-grid">${indexedDocs.map((d, i) => `<div class="mini-item"><strong>S${i+1} · ${escapeHtml(d.title)}</strong><p>${splitSentences(d.text).length} sentences · ${sentenceWordCount(d.text)} words</p></div>`).join("")}</div>`;
+        } else if (currentStage === 2) {
+          content = `<div class="explain-box">${escapeHtml(s.what)}<br><br><strong>Why it matters:</strong> ${escapeHtml(s.why)}</div><div class="mini-grid">${chunks.slice(0, 8).map(c => `<div class="mini-item"><strong>${c.id} · ${c.source} / ${escapeHtml(c.title)}</strong><p>${escapeHtml(c.text)}</p></div>`).join("")}</div>${chunks.length > 8 ? `<p class="muted-small" style="margin-top:10px">Showing 8 of ${chunks.length} chunks here. Retrieval can search all chunks.</p>` : ""}`;
+        } else if (currentStage === 3) {
+          const example = chunks[0];
+          content = `<div class="explain-box">${escapeHtml(s.what)}<br><br><strong>Why it matters:</strong> ${escapeHtml(s.why)}</div><div class="mini-grid"><div class="mini-item"><strong>Index status</strong><p>${chunks.length} chunks represented in memory. Each vector describes which of this demo's concept categories appear in that chunk.</p></div><div class="mini-item"><strong>What real systems do</strong><p>Run text through an embedding model and store vectors plus metadata in a vector index, often with a document ID and chunk location.</p></div></div>${example ? `<div class="mini-item" style="margin-top:9px"><strong>Example vector · ${example.id}</strong><p>${escapeHtml(example.text)}</p>${featureBars(example.vector, "Illustrative chunk vector")}</div>` : ""}`;
+        } else if (currentStage === 4) {
+          content = `<div class="explain-box">${escapeHtml(s.what)}<br><br><strong>Why it matters:</strong> ${escapeHtml(s.why)}</div><div class="mini-item" style="margin-top:14px"><strong>Question vector</strong><p>${escapeHtml(currentQuery)}</p>${featureBars(queryVector, "Illustrative query vector")}</div>`;
+        } else if (currentStage === 5) {
+          content = `<div class="explain-box">${escapeHtml(s.what)}<br><br><strong>Why it matters:</strong> ${escapeHtml(s.why)}</div><div class="result-list">${retrieved.length ? retrieved.map((c, i) => `<div class="result-card"><div class="result-meta"><span class="source-tag">Rank ${i+1} · ${c.source} · ${c.id}</span><span class="score-tag">${(c.score * 100).toFixed(0)}% demo score</span></div><p><strong>${escapeHtml(c.title)}</strong><br>${escapeHtml(c.text)}</p></div>`).join("") : `<div class="context-empty">No chunks matched strongly enough to retrieve.</div>`}</div>`;
+        } else if (currentStage === 6) {
+          content = `<div class="explain-box">${escapeHtml(s.what)}<br><br><strong>Why it matters:</strong> ${escapeHtml(s.why)}</div><div class="mini-item" style="margin-top:14px"><div class="context-top"><strong>Prompt context preview</strong><span class="tiny-count">${assembled.length} chunks</span></div>${assembled.length ? assembled.map(c => `<div class="context-chunk"><div class="context-chunk-head"><span class="context-chunk-title">[${c.source}] ${escapeHtml(c.title)}</span><span class="context-chunk-id">${c.id}</span></div><p>${escapeHtml(c.text)}</p></div>`).join("") : `<p>No supporting passages were selected. A grounded system should not make up an answer.</p>`}</div>`;
+        } else {
+          content = `<div class="explain-box">${escapeHtml(s.what)}<br><br><strong>Why it matters:</strong> ${escapeHtml(s.why)}</div><div class="mini-item" style="margin-top:14px"><strong>Generated result</strong><p>${answer ? escapeHtml(answer.plain) : "Answer generation has not run yet."}</p>${answer && answer.citations.length ? `<div class="token-list">${answer.citations.map(c => `<button class="token" data-jump-source="${c.docId}" type="button">${c.source} · View source ↗</button>`).join("")}</div>` : ""}</div>`;
+        }
+        root.innerHTML = `<div class="stage-detail-top"><div class="stage-title-wrap"><div class="stage-big-num">${String(currentStage+1).padStart(2,"0")}</div><div><h3>${escapeHtml(s.title)}</h3><div class="stage-subtitle">${escapeHtml(s.subtitle)}</div></div></div><span class="tiny-count">${completed.has(currentStage) ? "Complete" : "In progress"}</span></div><div class="stage-content">${content}</div>`;
+        renderPipeline();
+      }
+      function renderResults() {
+        $("matchCount").textContent = `${retrieved.length} result${retrieved.length === 1 ? "" : "s"}`;
+        if (!retrieved.length) {
+          $("resultsBody").className = "context-empty";
+          $("resultsBody").textContent = "No relevant source chunks were found. Try a different question or add a document that covers the topic.";
+          return;
+        }
+        $("resultsBody").className = "result-list";
+        $("resultsBody").innerHTML = retrieved.map((c, i) => `<div class="result-card"><div class="result-meta"><span class="source-tag">${i+1}. ${c.source} · ${c.id}</span><span class="score-tag">${(c.score*100).toFixed(0)}%</span></div><p><strong>${escapeHtml(c.title)}</strong><br>${escapeHtml(c.text)}</p></div>`).join("");
+      }
+      function renderContext() {
+        $("contextCount").textContent = `${assembled.length} chunk${assembled.length === 1 ? "" : "s"}`;
+        if (!assembled.length) {
+          $("contextBody").className = "context-empty";
+          $("contextBody").textContent = currentStage >= 5 ? "No relevant passages were selected, so there is no evidence to pass into generation." : "Relevant text will appear here after retrieval and context assembly.";
+          return;
+        }
+        $("contextBody").className = "";
+        $("contextBody").innerHTML = assembled.map(c => `<div class="context-chunk"><div class="context-chunk-head"><span class="context-chunk-title">[${c.source}] ${escapeHtml(c.title)}</span><span class="context-chunk-id">${c.id}</span></div><p>${escapeHtml(c.text)}</p></div>`).join("");
+      }
+      function renderAnswer() {
+        const status = $("answerStatus");
+        if (!answer) {
+          status.textContent = "Waiting"; status.classList.add("pending");
+          $("answerBody").className = "empty-answer";
+          $("answerBody").innerHTML = `<div class="empty-icon" aria-hidden="true">✳</div><strong>Your answer will appear here.</strong><p>Run the pipeline to see what the simulator can answer from the indexed sources, including source citations.</p>`;
+          $("answerSourceCount").textContent = "No citations yet"; $("answerConfidence").textContent = "Confidence: —"; return;
+        }
+        status.classList.remove("pending");
+        if (!answer.grounded) {
+          status.textContent = "No evidence";
+          $("answerBody").className = "empty-answer";
+          $("answerBody").innerHTML = `<div class="empty-icon" aria-hidden="true">?</div><strong>Not enough evidence to answer.</strong><p>${escapeHtml(answer.plain)}</p><p style="margin-top:10px">This is a desirable RAG behavior: when retrieval finds no useful support, the system should avoid inventing facts.</p>`;
+          $("answerSourceCount").textContent = "No supporting sources"; $("answerConfidence").textContent = "Confidence: low"; return;
+        }
+        status.textContent = "Grounded demo";
+        const html = answer.items.map(item => `${escapeHtml(item.text)} <button class="cite" type="button" data-jump-source="${item.docId}" title="Jump to ${escapeHtml(item.source)}">[${item.source}]</button>`).join(" ");
+        $("answerBody").className = "";
+        $("answerBody").innerHTML = `<p class="answer-copy">${html}</p>`;
+        $("answerSourceCount").textContent = `${answer.citations.length} source${answer.citations.length === 1 ? "" : "s"} cited`;
+        $("answerConfidence").textContent = `Confidence: ${answer.confidence}`;
+      }
+
+      function executeStage(n) {
+        if (n === 0) {
+          currentQuery = $("queryInput").value.trim();
+          if (!currentQuery) { showToast("Enter a question first."); return false; }
+        } else if (!currentQuery) {
+          currentQuery = $("queryInput").value.trim();
+          if (!currentQuery) { showToast("Enter a question first."); return false; }
+        }
+        if (n === 1) indexedDocs = docs.map(d => ({...d}));
+        if (n === 2) chunks = makeChunks(indexedDocs);
+        if (n === 3) {
+          chunks.forEach(c => { c.vector = vectorize(c.text); });
+          $("statChunks").textContent = String(chunks.length).padStart(2, "0");
+        }
+        if (n === 4) queryVector = vectorize(currentQuery);
+        if (n === 5) {
+          const k = Number($("topK").value);
+          retrieved = chunks.map(c => ({...c, score: relevance(currentQuery, c.text)}))
+            .filter(c => c.score > 0.015)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, k);
+        }
+        if (n === 6) assembled = retrieved.slice();
+        if (n === 7) answer = generateGroundedAnswer();
+        completed.add(n); currentStage = n;
+        if (n >= 5) renderResults();
+        if (n >= 6) renderContext();
+        if (n >= 7) renderAnswer();
+        setStatus(`Stage ${n+1} of ${stages.length} complete`);
+        renderStageDetail();
+        return true;
+      }
+      function generateGroundedAnswer() {
+        if (!assembled.length) {
+          return { grounded: false, plain: "I couldn't find information in the indexed documents that supports an answer to this question. Add a relevant source or try asking about a topic covered in the knowledge base.", items: [], citations: [], confidence: "low" };
+        }
+        const candidateSentences = [];
+        assembled.forEach(chunk => {
+          chunk.sentences.forEach(sentence => {
+            const score = relevance(currentQuery, sentence);
+            if (score > 0.01) candidateSentences.push({ text: sentence, score, source: chunk.source, docId: chunk.docId, title: chunk.title, chunkId: chunk.id });
+          });
+        });
+        candidateSentences.sort((a, b) => b.score - a.score);
+        // Keep up to two relevant sentences, preferring unique sentence content.
+        const chosen = [];
+        for (const item of candidateSentences) {
+          if (!chosen.some(c => c.text === item.text)) chosen.push(item);
+          if (chosen.length >= 2) break;
+        }
+        if (!chosen.length) {
+          return { grounded: false, plain: "The retrieved passages did not provide enough direct evidence to answer this question confidently. Try a more specific query or add a source covering the topic.", items: [], citations: [], confidence: "low" };
+        }
+        const citations = [];
+        chosen.forEach(item => { if (!citations.some(c => c.docId === item.docId)) citations.push({docId:item.docId, source:item.source, title:item.title}); });
+        const top = retrieved[0]?.score || 0;
+        const confidence = top >= .55 ? "high for this demo" : top >= .28 ? "moderate" : "low";
+        return { grounded: true, items: chosen, plain: chosen.map(c => c.text).join(" "), citations, confidence };
+      }
+      function runAll() {
+        resetRunState();
+        currentQuery = $("queryInput").value.trim();
+        if (!currentQuery) { showToast("Enter a question first."); return; }
+        for (let i = 0; i < stages.length; i++) {
+          if (!executeStage(i)) break;
+        }
+        setStatus("Pipeline complete");
+        showToast(answer && answer.grounded ? "Pipeline complete. Inspect the cited sources." : "Pipeline complete. No supporting evidence was found.");
+      }
+      function startGuided() {
+        resetRunState();
+        currentQuery = $("queryInput").value.trim();
+        if (!currentQuery) { showToast("Enter a question first."); return; }
+        executeStage(0);
+        setStatus("Guided run · 1 of 8");
+      }
+      function advance() {
+        if (currentStage < 0) { startGuided(); return; }
+        if (currentStage >= stages.length - 1) { startGuided(); return; }
+        // Continue in order, ensuring an edited query is captured at the first stage.
+        executeStage(currentStage + 1);
+        if (currentStage >= stages.length - 1) setStatus("Guided run complete");
+      }
+      function goToStage(n) {
+        if (n < 0 || n >= stages.length) return;
+        if (currentStage < 0 || n > currentStage + 1 || !completed.has(n)) {
+          if (currentStage < 0 && n !== 0) { showToast("Start at stage 01, then move forward to keep each step clear."); return; }
+          if (n > currentStage + 1) { showToast("Complete the previous stage first, or run the full pipeline."); return; }
+          if (!executeStage(n)) return;
+        } else {
+          currentStage = n; renderStageDetail();
+        }
+      }
+      function resetAndPreserveQuery() {
+        resetRunState();
+      }
+      function jumpToSource(docId) {
+        const el = document.getElementById(`source-${docId}`);
+        if (!el) { showToast("That source is no longer in the library."); return; }
+        el.scrollIntoView({behavior:"smooth", block:"center"});
+        el.classList.add("highlight");
+        setTimeout(() => el.classList.remove("highlight"), 1800);
+      }
+
+      $("runAllBtn").addEventListener("click", runAll);
+      $("startStepBtn").addEventListener("click", () => currentStage < 0 || currentStage >= stages.length - 1 ? startGuided() : advance());
+      $("nextBtn").addEventListener("click", advance);
+      $("prevBtn").addEventListener("click", () => { if (currentStage > 0) { currentStage -= 1; renderStageDetail(); } });
+      $("resetBtn").addEventListener("click", resetAndPreserveQuery);
+      $("topK").addEventListener("input", e => {
+        $("topKValue").textContent = e.target.value;
+        if (currentStage >= 5) {
+          // Retrieval-dependent stages must be recalculated when K changes.
+          if (!completed.has(4)) return;
+          retrieved = chunks.map(c => ({...c, score: relevance(currentQuery, c.text)})).filter(c => c.score > 0.015).sort((a,b) => b.score-a.score).slice(0, Number(e.target.value));
+          assembled = completed.has(6) ? retrieved.slice() : [];
+          answer = completed.has(7) ? generateGroundedAnswer() : null;
+          renderResults(); renderContext(); renderAnswer(); renderStageDetail();
+        }
+      });
+      document.querySelectorAll("[data-query]").forEach(btn => btn.addEventListener("click", () => {
+        $("queryInput").value = btn.dataset.query;
+        resetRunState();
+        $("queryInput").focus();
+      }));
+      document.querySelectorAll(".stage-button").forEach(btn => btn.addEventListener("click", () => goToStage(Number(btn.dataset.stage))));
+
+      $("addDocBtn").addEventListener("click", () => {
+        $("addDocPanel").classList.toggle("open");
+        if ($("addDocPanel").classList.contains("open")) $("newDocTitle").focus();
+      });
+      $("cancelAddBtn").addEventListener("click", () => { $("addDocPanel").classList.remove("open"); $("newDocTitle").value = ""; $("newDocText").value = ""; });
+      $("saveAddBtn").addEventListener("click", () => {
+        const title = $("newDocTitle").value.trim(); const text = $("newDocText").value.trim();
+        if (!title || !text) { showToast("Add a title and some document text."); return; }
+        docs.push({id: nextDocId++, title, text});
+        $("newDocTitle").value = ""; $("newDocText").value = ""; $("addDocPanel").classList.remove("open");
+        renderSources(); resetRunState(); showToast("Source added. Run the pipeline to re-index it.");
+      });
+      $("sourceGrid").addEventListener("click", e => {
+        const edit = e.target.closest("[data-edit-doc]");
+        const remove = e.target.closest("[data-remove-doc]");
+        const save = e.target.closest("[data-save-doc]");
+        const cancel = e.target.closest("[data-cancel-edit]");
+        const jump = e.target.closest("[data-jump-source]");
+        if (edit) {
+          const id = Number(edit.dataset.editDoc); docs = docs.map(d => ({...d, editing: d.id === id ? !d.editing : false})); renderSources();
+        } else if (remove) {
+          const id = Number(remove.dataset.removeDoc); docs = docs.filter(d => d.id !== id); renderSources(); resetRunState(); showToast("Source removed. Run the pipeline to re-index.");
+        } else if (save) {
+          const id = Number(save.dataset.saveDoc); const title = $(`edit-title-${id}`).value.trim(); const text = $(`edit-text-${id}`).value.trim();
+          if (!title || !text) { showToast("Title and text cannot be empty."); return; }
+          docs = docs.map(d => d.id === id ? {...d, title, text, editing:false} : {...d, editing:false}); renderSources(); resetRunState(); showToast("Source updated. Run the pipeline to re-index.");
+        } else if (cancel) {
+          const id = Number(cancel.dataset.cancelEdit); docs = docs.map(d => ({...d, editing:false})); renderSources();
+        } else if (jump) jumpToSource(Number(jump.dataset.jumpSource));
+      });
+      document.addEventListener("click", e => {
+        const jump = e.target.closest("[data-jump-source]");
+        if (jump && !jump.closest("#sourceGrid")) jumpToSource(Number(jump.dataset.jumpSource));
+      });
+      $("queryInput").addEventListener("keydown", e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runAll();
+      });
+
+      renderSources();
+      resetRunState();
+    })();
+  </script>
+</body>
+</html>
